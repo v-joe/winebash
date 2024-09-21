@@ -83,7 +83,10 @@ void
 show_shell_version (extended)
      int extended;
 {
-  printf (_("GNU bash, version %s (%s)\n"), shell_version_string (), MACHTYPE);
+  printf (_("GNU bash, version %s (%s)\n"
+            "Patched to launch exe files via wine.\n"
+            "See https://github.com/v-joe/winebash "
+            "for details.\n"), shell_version_string (), MACHTYPE);
   if (extended)
     {
       printf ("%s\n", _(bash_copyright));
