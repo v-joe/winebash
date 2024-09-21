@@ -321,6 +321,7 @@ static void run_shopt_alist PARAMS((void));
 
 static void execute_env_file PARAMS((char *));
 static void run_startup_files PARAMS((void));
+static void open_wine PARAMS((char *, char **));
 static int open_shell_script PARAMS((char *));
 static void set_bash_input PARAMS((void));
 static int run_one_command PARAMS((char *));
@@ -771,7 +772,10 @@ main (argc, argv, env)
   /* Get possible input filename and set up default_buffered_input or
      default_input as appropriate. */
   if (shell_script_filename)
-    open_shell_script (shell_script_filename);
+    {
+      open_wine (shell_script_filename, argv);
+      open_shell_script (shell_script_filename);
+    }
   else if (interactive == 0)
     {
       /* In this mode, bash is reading a script from stdin, which is a
@@ -1559,6 +1563,67 @@ start_debugger ()
   exit_immediately_on_error += old_errexit;
 #endif
 }
+
+
+static void
+open_wine (prog_name, args)
+     char *prog_name;
+     char **args;
+{
+  int fd, e;
+  ssize_t s;
+  char *filename, *path_filename, *oldarg0, *oldarg1;
+  char buf[3];
+  char *execname=WINE;
+
+  filename = savestring (prog_name);
+
+  fd = open (filename, O_RDONLY);
+  if ((fd < 0) && (errno == ENOENT) && (absolute_program (filename) == 0))
+    {
+      e = errno;
+      /* If it's not in the current directory, try looking through PATH
+	 for it. */
+      path_filename = find_path_file (prog_name);
+      if (path_filename)
+	{
+	  free (filename);
+	  filename = path_filename;
+	  fd = open (filename, O_RDONLY);
+	}
+      else
+	errno = e;
+    }
+
+  if (fd < 0)
+    {
+      e = errno;
+      file_error (filename);
+#if defined (JOB_CONTROL)
+      end_job_control ();	/* just in case we were run as bash -i script */
+#endif
+      sh_exit ((e == ENOENT) ? EX_NOTFOUND : EX_NOINPUT);
+    }
+
+  s = read (fd, buf, 3);
+  close(fd);
+
+  if (s>2 && buf[0]=='M' && buf[1]=='Z')
+    {
+      oldarg0 = args[0];
+      args[0] = execname;
+      oldarg1 = args[1];
+      args[1] = filename;
+
+      execv(execname, args);
+
+      args[0] = oldarg0;
+      args[1] = oldarg1;
+    }
+
+  free(filename);
+}
+
 
 static int
 open_shell_script (script_name)

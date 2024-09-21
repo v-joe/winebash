@@ -5809,6 +5809,28 @@ getinterp (sample, sample_len, endp)
   return execname;
 }
 
+static int
+execute_wine (command, args, env)
+     char *command;
+     char **args, **env;
+{
+  char *execname=WINE;
+  int i, larry;
+
+  larry = strvec_len (args) + 1;
+  args = strvec_resize (args, larry + 1);
+
+  for (i = larry - 1; i; i--)
+    args[i] = args[i - 1];
+
+  args[0] = execname;
+  args[1] = command;
+  args[larry] = (char *)NULL;
+
+  return (shell_execve (execname, args, env));
+}
+
+
 #if !defined (HAVE_HASH_BANG_EXEC)
 /* If the operating system on which we're running does not handle
    the #! executable format, then help out.  SAMPLE is the text read
@@ -6048,12 +6070,17 @@ shell_execve (command, args, env)
 	return (execute_shell_script (sample, sample_len, command, args, env));
       else
 #endif
+     {
+      if (sample_len > 2 && sample[0] == 'M' && sample[1] == 'Z')
+	return (execute_wine (command, args, env));
+      else
       if (check_binary_file (sample, sample_len))
 	{
 	  internal_error (_("%s: cannot execute binary file: %s"), command, strerror (i));
 	  errno = i;
 	  return (EX_BINARY_FILE);
 	}
+     }
     }
 
   /* We have committed to attempting to execute the contents of this file
