@@ -18,6 +18,8 @@
    along with Bash.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#define WINE "/usr/bin/wine"
+
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
